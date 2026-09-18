@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Simulateur Pro + Perso — décumulation avec fiscalité</title>
+<style>
+:root{
+  --paper:#f6f3ec; --paper-2:#efe9dd; --ink:#1e2a24; --ink-soft:#4a5750;
+  --line:#d8d0bd; --accent:#2f5233; --accent-2:#8a6d3b; --bad:#a1432a; --good:#2f6b4f;
+  --band:rgba(47,82,51,0.14); --card:#ffffff;
+  --pro:#5470a8; --perso:#2f6b4f;
+  --font-serif:'Source Serif 4',Georgia,'Times New Roman',serif;
+  --font-sans:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#181c19; --paper-2:#20241f; --ink:#eae5d8; --ink-soft:#a9b3ac;
+    --line:#3a3f38; --accent:#7fb88a; --accent-2:#d3ab6a; --bad:#e08767; --good:#7fcba0;
+    --band:rgba(127,184,138,0.14); --card:#20241f; --pro:#8fb0e8; --perso:#7fcba0;
+  }
+}
+:root[data-theme="dark"]{
+    --paper:#181c19; --paper-2:#20241f; --ink:#eae5d8; --ink-soft:#a9b3ac;
+    --line:#3a3f38; --accent:#7fb88a; --accent-2:#d3ab6a; --bad:#e08767; --good:#7fcba0;
+    --band:rgba(127,184,138,0.14); --card:#20241f; --pro:#8fb0e8; --perso:#7fcba0;
+}
+@import url('https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap');
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;background:var(--paper);color:var(--ink);font-family:var(--font-sans);}
+body{padding:20px 16px 60px;max-width:960px;margin:0 auto;font-variant-numeric:tabular-nums;}
+h1{font-family:var(--font-serif);font-weight:700;font-size:1.5rem;line-height:1.25;margin:6px 0 4px;}
+.subtitle{color:var(--ink-soft);font-size:0.92rem;margin:0 0 20px;max-width:65ch;}
+h2{font-family:var(--font-serif);font-size:1.1rem;margin:0 0 12px;font-weight:600;}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px 16px 6px;margin-bottom:16px;}
+.row{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:12px;}
+.field{flex:1 1 200px;min-width:160px;}
+.field label{display:flex;justify-content:space-between;font-size:0.8rem;color:var(--ink-soft);margin-bottom:5px;}
+.field label .val{color:var(--ink);font-weight:600;}
+input[type=range]{width:100%;accent-color:var(--accent);}
+input[type=number]{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);font-size:0.9rem;}
+.bucket-tag{display:inline-block;font-size:0.7rem;font-weight:700;padding:2px 8px;border-radius:20px;color:white;margin-right:6px;}
+.tag-pro{background:var(--pro);} .tag-perso{background:var(--perso);}
+button.run{background:var(--accent);color:var(--paper);border:none;border-radius:8px;padding:12px 20px;font-size:0.96rem;font-weight:600;cursor:pointer;width:100%;margin:6px 0 14px;font-family:var(--font-sans);}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px;}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:13px;}
+.card .label{font-size:0.73rem;color:var(--ink-soft);margin-bottom:4px;}
+.card .num{font-family:var(--font-serif);font-size:1.25rem;font-weight:600;}
+.card .num.bad{color:var(--bad);} .card .num.good{color:var(--good);}
+.card .sub{font-size:0.72rem;color:var(--ink-soft);margin-top:2px;}
+.chart-wrap{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin-bottom:16px;overflow-x:auto;}
+.legend{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:0.75rem;color:var(--ink-soft);margin-top:6px;}
+.legend span{display:inline-flex;align-items:center;gap:5px;}
+.legend i{width:12px;height:12px;display:inline-block;border-radius:3px;}
+table{width:100%;border-collapse:collapse;font-size:0.8rem;}
+th,td{text-align:right;padding:6px 7px;border-bottom:1px solid var(--line);}
+th:first-child,td:first-child{text-align:left;}
+th{color:var(--ink-soft);font-weight:600;font-size:0.68rem;}
+.note{font-size:0.75rem;color:var(--ink-soft);line-height:1.55;margin-top:6px;}
+select{width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--ink);font-size:0.88rem;}
+footer{text-align:center;color:var(--ink-soft);font-size:0.72rem;margin-top:26px;}
+</style>
+</head>
+<body>
+
+<h1>Simulateur Pro + Perso — combien il te reste net en poche</h1>
+<p class="subtitle">Modélise une décumulation combinant ton EURL (frais pro + salaire chargé, dividendes fermés) et ton compte perso (plus-value taxée), les deux réellement investis en bourse, sur les cycles de marché réels depuis 1928.</p>
+
+<div class="panel">
+  <h2>Tes deux enveloppes</h2>
+  <div class="row">
+    <div class="field"><label><span class="bucket-tag tag-pro">PRO</span>Capital <span class="val" id="capProVal"></span></label>
+      <input type="number" id="capPro" value="407168" step="5000"></div>
+    <div class="field"><label>Part actions (Pro) <span class="val" id="allocProVal"></span></label>
+      <input type="range" id="allocPro" min="0" max="100" value="78" step="1"></div>
+    <div class="field"><label>% plus-value actuel (Pro) <span class="val" id="pvProVal"></span></label>
+      <input type="range" id="pvPro" min="0" max="60" value="20" step="1"></div>
+  </div>
+  <div class="row">
+    <div class="field"><label><span class="bucket-tag tag-perso">PERSO</span>Capital <span class="val" id="capPersoVal"></span></label>
+      <input type="number" id="capPerso" value="822118" step="5000"></div>
+    <div class="field"><label>Part actions (Perso) <span class="val" id="allocPersoVal"></span></label>
+      <input type="range" id="allocPerso" min="0" max="100" value="67" step="1"></div>
+    <div class="field"><label>% plus-value actuel (Perso) <span class="val" id="pvPersoVal"></span></label>
+      <input type="range" id="pvPerso" min="0" max="60" value="20" step="1"></div>
+  </div>
+</div>
+
+<div class="panel">
+  <h2>Canaux d'extraction</h2>
+  <div class="row">
+    <div class="field"><label><span class="bucket-tag tag-pro">PRO</span>Frais pro (net, 0 charge) <span class="val" id="fraisProVal"></span>/mois</label>
+      <input type="range" id="fraisPro" min="0" max="1500" value="1300" step="50"></div>
+    <div class="field"><label><span class="bucket-tag tag-pro">PRO</span>Salaire net visé <span class="val" id="salaireVal"></span>/mois</label>
+      <input type="range" id="salaire" min="0" max="4000" value="1000" step="100"></div>
+    <div class="field"><label>Charges TNS sur le salaire <span class="val" id="chargesVal"></span></label>
+      <input type="range" id="charges" min="30" max="55" value="45" step="1"></div>
+  </div>
+  <div class="row">
+    <div class="field"><label><span class="bucket-tag tag-perso">PERSO</span>Taux d'imposition sur la plus-value <span class="val" id="tauxPVVal"></span></label>
+      <input type="range" id="tauxPV" min="17.2" max="47.2" value="20" step="0.2"></div>
+    <div class="field"><label><span class="bucket-tag tag-pro">PRO</span>Frais de structure EURL <span class="val" id="fraisStructVal"></span>/an</label>
+      <input type="range" id="fraisStruct" min="0" max="8000" value="4000" step="250"></div>
+    <div class="field"><label>Horizon <span class="val" id="horizonVal"></span></label>
+      <input type="range" id="horizon" min="30" max="55" value="55" step="1"></div>
+    <div class="field"><label>Rendement réel attendu (calcul VPW) <span class="val" id="vpwGVal"></span></label>
+      <input type="range" id="vpwG" min="1" max="6" value="3.5" step="0.1"></div>
+  </div>
+  <div class="row">
+    <div class="field"><label>Plancher retrait mensuel <span class="val" id="planchVal"></span>/mois</label>
+      <input type="range" id="planch" min="0" max="4000" value="0" step="50"></div>
+    <div class="field"><label>Plafond retrait mensuel <span class="val" id="plafVal"></span>/mois</label>
+      <input type="range" id="plaf" min="2500" max="10000" value="10000" step="50"></div>
+  </div>
+  <p class="note" style="margin-top:0;">Ordre de puisage chaque année : 1) le retrait cible VPW est d'abord ramené entre le plancher et le plafond que tu fixes → 2) frais pro (gratuit) → 3) salaire net visé (coûte le salaire ÷ (1 − charges TNS) en capital Pro) → 4) le reste vient du Perso (coûte le montant ÷ (1 − ratio PV × taux d'imposition) en capital Perso) → 5) les frais de structure EURL sont ensuite prélevés sur ce qu'il reste au Pro, tant qu'il existe. Si le Pro s'épuise, tout bascule sur le Perso et les frais de structure s'arrêtent (la société est fermée). Le plafond laisse l'excédent composer au lieu d'être retiré ; le plancher force un retrait minimum même si le calcul VPW proposerait moins (et peut accélérer l'épuisement du capital dans les pires cycles).</p>
+  <button class="run" id="runBtn">Simuler sur tous les cycles historiques</button>
+  <button class="run" id="copyLinkBtn" style="background:var(--paper-2);color:var(--ink);border:1px solid var(--line);">Copier le lien de cette simulation</button>
+</div>
+
+<div id="results" style="display:none;">
+  <div class="cards" id="cards"></div>
+
+  <div class="chart-wrap">
+    <h2 style="margin-bottom:2px;">Un cycle en détail</h2>
+    <div class="row" style="margin-bottom:10px;">
+      <div class="field" style="max-width:260px;">
+        <label>Cycle affiché</label>
+        <select id="cycleSelect"></select>
+      </div>
+    </div>
+    <svg id="chart" viewBox="0 0 760 340" style="width:100%;height:auto;"></svg>
+    <div class="legend" id="legend"></div>
+    <p class="note">Zone bleue = solde Pro, zone verte = solde Perso (échelle réelle, pas logarithmique). La ligne pointillée est le net mensuel en poche cette année-là.</p>
+  </div>
+
+  <div class="chart-wrap">
+    <h2>Composition du retrait, 5 premières années du cycle sélectionné</h2>
+    <table id="breakdownTable"></table>
+    <p class="note">« Coût Pro » et « Coût Perso » = ce qui sort réellement du capital de chaque enveloppe (charges/impôt compris) pour livrer le net en poche.</p>
+  </div>
+
+  <div class="chart-wrap">
+    <h2>Robustesse sur tous les cycles historiques</h2>
+    <table id="statsTable"></table>
+  </div>
+</div>
+
+<footer>Rendements réels US 1928–2024 (actions S&amp;P 500, obligations 10 ans) — proxy pour un portefeuille actions/obligations mondial. La partie fiscale (charges TNS, imposition PV, traitement de l'IS sur le Pro) est une approximation à valider avec ton comptable — notamment le traitement de l'article 209-0 A sur le portefeuille EURL.</footer>
+
+<script>
+const HIST = [[1928, 45.49, 2.01], [1929, -8.83, 3.6], [1930, -20.01, 11.68], [1931, -38.07, 7.45], [1932, 1.82, 21.25], [1933, 48.85, 1.08], [1934, -2.66, 6.35], [1935, 42.49, 1.44], [1936, 30.06, 3.52], [1937, -37.13, -1.44], [1938, 32.98, 7.19], [1939, -1.1, 4.41], [1940, -11.31, 4.65], [1941, -20.65, -10.87], [1942, 9.3, -6.18], [1943, 21.47, -0.46], [1944, 16.36, 0.27], [1945, 32.84, 1.52], [1946, -22.48, -12.7], [1947, -3.34, -7.27], [1948, 2.63, -1.01], [1949, 20.81, 6.88], [1950, 23.48, -5.19], [1951, 16.68, -5.94], [1952, 17.27, 1.5], [1953, -1.94, 3.37], [1954, 53.71, 4.06], [1955, 32.1, -1.7], [1956, 4.33, -5.09], [1957, -12.98, 3.79], [1958, 41.23, -3.79], [1959, 10.15, -4.3], [1960, -1.01, 10.14], [1961, 25.79, 1.38], [1962, -10.01, 4.3], [1963, 20.63, 0.04], [1964, 15.3, 2.73], [1965, 10.28, -1.18], [1966, -12.98, -0.53], [1967, 20.15, -4.48], [1968, 5.82, -1.38], [1969, -13.6, -10.56], [1970, -1.9, 10.59], [1971, 10.61, 6.31], [1972, 14.84, -0.57], [1973, -21.17, -4.64], [1974, -34.04, -9.21], [1975, 28.11, -3.12], [1976, 18.09, 10.6], [1977, -12.82, -5.07], [1978, -2.3, -8.99], [1979, 4.61, -11.14], [1980, 17.08, -13.78], [1981, -12.51, -0.66], [1982, 15.98, 27.92], [1983, 17.87, -0.57], [1984, 2.11, 9.41], [1985, 26.43, 21.11], [1986, 17.21, 22.93], [1987, 1.32, -9.0], [1988, 11.6, 3.64], [1989, 25.64, 12.47], [1990, -8.64, 0.12], [1991, 26.36, 11.59], [1992, 4.46, 6.28], [1993, 7.03, 11.16], [1994, -1.31, -10.43], [1995, 33.8, 20.42], [1996, 18.74, -1.83], [1997, 30.88, 8.1], [1998, 26.3, 13.1], [1999, 17.72, -10.65], [2000, -12.01, 12.83], [2001, -13.2, 3.96], [2002, -23.78, 12.44], [2003, 25.99, -1.48], [2004, 7.25, 1.2], [2005, 1.37, -0.53], [2006, 12.75, -0.57], [2007, 1.35, 5.89], [2008, -36.61, 19.99], [2009, 22.6, -13.47], [2010, 13.13, 6.86], [2011, -0.84, 12.7], [2012, 13.91, 1.21], [2013, 30.19, -10.45], [2014, 12.67, 9.91], [2015, 0.64, 0.55], [2016, 9.5, -1.36], [2017, 19.09, 0.68], [2018, -6.02, -1.89], [2019, 28.28, 7.19], [2020, 16.44, 9.84], [2021, 20.02, -10.7], [2022, -23.01, -22.81], [2023, 21.97, 0.51], [2024, 21.54, -4.27]];
+const N_YEARS = HIST.length;
+const fmtEUR = n => new Intl.NumberFormat('fr-FR',{maximumFractionDigits:0}).format(Math.round(n)) + ' €';
+
+function annuityFactor(n,g){ if(n<=0) return 1; if(Math.abs(g)<1e-6) return n; return (1-Math.pow(1+g,-n))/g; }
+
+function returnFor(alloc_stock, y){
+  return (alloc_stock*y[1] + (100-alloc_stock)*y[2])/10000;
+}
+
+// Simulate one historical cycle with the Pro/Perso sourcing logic
+function simulateCycle(startIdx, N, p){
+  let pro = p.capPro, perso = p.capPerso;
+  let proCostBasis = p.capPro*(1-p.pvPro/100); // not used for pro (no CGT modeled on pro), kept for symmetry
+  let persoCostBasis = p.capPerso*(1-p.pvPerso/100);
+  const totalCap0 = p.capPro + p.capPerso;
+  const trace = [];
+  let depleted = false;
+  for(let t=0;t<N;t++){
+    const remaining = N-t;
+    const totalNow = Math.max(pro,0)+Math.max(perso,0);
+    const af = annuityFactor(remaining, p.vpwG/100);
+    let netTarget = totalNow>0 ? totalNow/af : 0;
+    // plancher / plafond
+    if(p.plafondAnnual) netTarget = Math.min(netTarget, p.plafondAnnual);
+    if(p.plancherAnnual) netTarget = Math.max(netTarget, p.plancherAnnual);
+    netTarget = Math.min(netTarget, totalNow); // ne jamais retirer plus que ce qui existe
+
+    // sourcing
+    let netFromFraisPro = Math.min(netTarget, p.fraisProAnnual, Math.max(pro,0));
+    pro -= netFromFraisPro;
+    let remainAfter1 = netTarget - netFromFraisPro;
+
+    let salaireNetTarget = Math.min(remainAfter1, p.salaireAnnual);
+    let salaireGrossCost = salaireNetTarget / (1-p.chargesRate);
+    // cap by available pro balance
+    if(salaireGrossCost > Math.max(pro,0)){
+      salaireGrossCost = Math.max(pro,0);
+      salaireNetTarget = salaireGrossCost*(1-p.chargesRate);
+    }
+    pro -= salaireGrossCost;
+    let netFromPro = netFromFraisPro + salaireNetTarget;
+    let remainAfter2 = netTarget - netFromPro;
+
+    // perso sourcing: gross needed so that net = remainAfter2, with tax on gain fraction only
+    const pvRatioNow = perso>0 ? Math.max(0, (perso-persoCostBasis)/perso) : 0;
+    const effTax = pvRatioNow * p.tauxPV;
+    let persoGrossNeeded = remainAfter2 / (1-effTax);
+    if(persoGrossNeeded > Math.max(perso,0)){
+      persoGrossNeeded = Math.max(perso,0);
+    }
+    const persoNetDelivered = persoGrossNeeded*(1-effTax);
+    // reduce cost basis proportionally
+    if(perso>0){
+      const frac = persoGrossNeeded/perso;
+      persoCostBasis -= persoCostBasis*frac;
+    }
+    perso -= persoGrossNeeded;
+
+    const netInPocket = netFromPro + persoNetDelivered;
+    if(netInPocket < netTarget*0.999 && (pro<=1 && perso<=1)) depleted = true;
+
+    // frais de structure EURL, prélevés sur ce qu'il reste du Pro, tant que le Pro existe
+    let structCost = 0;
+    if(pro > 1){
+      structCost = Math.min(p.fraisStructAnnual, pro);
+      pro -= structCost;
+    }
+
+    trace.push({
+      t, year: HIST[startIdx+t][0],
+      proBefore: pro+salaireGrossCost+netFromFraisPro+structCost, persoBefore: perso+persoGrossNeeded,
+      fraisPro: netFromFraisPro, salaireNet: salaireNetTarget, salaireCoutPro: salaireGrossCost,
+      persoNet: persoNetDelivered, persoCoutPerso: persoGrossNeeded, netTotal: netInPocket,
+      structCost: structCost,
+      proAfterWithdraw: pro, persoAfterWithdraw: perso
+    });
+
+    // apply market growth
+    const yr = HIST[startIdx+t];
+    if(pro>0) pro *= (1+returnFor(p.allocPro, yr));
+    if(perso>0) perso *= (1+returnFor(p.allocPerso, yr));
+    trace[trace.length-1].proEnd = pro;
+    trace[trace.length-1].persoEnd = perso;
+  }
+  return {trace, finalPro: pro, finalPerso: perso, finalTotal: pro+perso, depleted, startYear: HIST[startIdx][0]};
+}
+
+function percentile(arr,p){
+  const s=[...arr].sort((a,b)=>a-b);
+  const idx=(s.length-1)*p; const lo=Math.floor(idx), hi=Math.ceil(idx);
+  if(lo===hi) return s[lo];
+  return s[lo]+(s[hi]-s[lo])*(idx-lo);
+}
+
+function getParams(){
+  return {
+    capPro: parseFloat(document.getElementById('capPro').value)||0,
+    capPerso: parseFloat(document.getElementById('capPerso').value)||0,
+    allocPro: parseInt(document.getElementById('allocPro').value),
+    allocPerso: parseInt(document.getElementById('allocPerso').value),
+    pvPro: parseFloat(document.getElementById('pvPro').value),
+    pvPerso: parseFloat(document.getElementById('pvPerso').value),
+    fraisProAnnual: parseFloat(document.getElementById('fraisPro').value)*12,
+    salaireAnnual: parseFloat(document.getElementById('salaire').value)*12,
+    chargesRate: parseFloat(document.getElementById('charges').value)/100,
+    tauxPV: parseFloat(document.getElementById('tauxPV').value)/100,
+    fraisStructAnnual: parseFloat(document.getElementById('fraisStruct').value),
+    plancherAnnual: parseFloat(document.getElementById('planch').value)*12,
+    plafondAnnual: parseFloat(document.getElementById('plaf').value)*12,
+    horizon: parseInt(document.getElementById('horizon').value),
+    vpwG: parseFloat(document.getElementById('vpwG').value),
+  };
+}
+
+let lastCycles = [];
+
+function runAll(){
+  const p = getParams();
+  const N = p.horizon;
+  const maxStart = N_YEARS - N;
+  if(maxStart<0){ alert('Horizon trop long pour les données disponibles.'); return; }
+  const cycles = [];
+  for(let i=0;i<=maxStart;i++) cycles.push(simulateCycle(i,N,p));
+  lastCycles = cycles;
+
+  // populate cycle selector
+  const sel = document.getElementById('cycleSelect');
+  sel.innerHTML = cycles.map((c,i)=>`<option value="${i}">Départ ${c.startYear}</option>`).join('');
+  // pick median-final cycle as default
+  const sortedByFinal = [...cycles].sort((a,b)=>a.finalTotal-b.finalTotal);
+  const medianCycle = sortedByFinal[Math.floor(sortedByFinal.length/2)];
+  sel.value = cycles.indexOf(medianCycle);
+
+  // summary cards
+  const netAvgPerCycle = cycles.map(c => c.trace.reduce((a,r)=>a+r.netTotal,0)/c.trace.length/12);
+  const netFirstYear = cycles[0].trace[0].netTotal/12;
+  const netMinPerCycle = cycles.map(c => Math.min(...c.trace.map(r=>r.netTotal))/12);
+  const dragPerCycle = cycles.map(c => {
+    const totalNet = c.trace.reduce((a,r)=>a+r.netTotal,0);
+    const totalGross = c.trace.reduce((a,r)=>a+r.fraisPro+r.salaireCoutPro+r.persoCoutPerso,0);
+    return totalGross>0 ? (totalGross-totalNet)/totalGross*100 : 0;
+  });
+  const finals = cycles.map(c=>c.finalTotal);
+  const proDepletionYear = cycles.map(c=>{
+    const idx = c.trace.findIndex(r=>r.proEnd<=1);
+    return idx===-1 ? p.horizon : idx+1;
+  });
+  const totalStructCost = cycles.map(c => c.trace.reduce((a,r)=>a+r.structCost,0));
+
+  const cardDefs = [
+    {label:'Net en poche, année 1', num: fmtEUR(netFirstYear)+'/mois', sub:'identique pour tous les cycles au départ'},
+    {label:'Net en poche moyen, cycle médian', num: fmtEUR(percentile(netAvgPerCycle,0.5))+'/mois', sub:"moyenne sur tout l'horizon"},
+    {label:'Net en poche moyen, 10e centile', num: fmtEUR(percentile(netAvgPerCycle,0.1))+'/mois', sub:'scénario difficile'},
+    {label:'Pire mois jamais (net)', num: fmtEUR(Math.min(...netMinPerCycle))+'/mois', sub:'creux le plus bas, tous cycles', cls:'bad'},
+    {label:'Frottement fiscal moyen', num: percentile(dragPerCycle,0.5).toFixed(1)+' %', sub:'part perdue en charges/impôt sur le total extrait'},
+    {label:'Pro épuisé après (médiane)', num: percentile(proDepletionYear,0.5).toFixed(0)+' ans', sub:'puis 100% du net vient du Perso'},
+    {label:'Frais de structure payés (médiane)', num: fmtEUR(percentile(totalStructCost,0.5)), sub:'cumulé sur toute la durée où le Pro existe'},
+    {label:'Capital total final, médiane', num: fmtEUR(percentile(finals,0.5)), sub:"en euros d'aujourd'hui"},
+    {label:'Capital total final, 10e centile', num: fmtEUR(percentile(finals,0.1)), sub:'scénario difficile', cls: percentile(finals,0.1)<0 ? 'bad':''},
+  ];
+  const cardsEl = document.getElementById('cards');
+  cardsEl.innerHTML = cardDefs.map(c=>`<div class="card"><div class="label">${c.label}</div><div class="num ${c.cls||''}">${c.num}</div><div class="sub">${c.sub}</div></div>`).join('');
+
+  drawCycle();
+  buildStatsTable(cycles);
+  document.getElementById('results').style.display = 'block';
+}
+
+function drawCycle(){
+  const idx = parseInt(document.getElementById('cycleSelect').value);
+  const c = lastCycles[idx];
+  if(!c) return;
+  const svg = document.getElementById('chart');
+  svg.innerHTML='';
+  const W=760,H=340,ML=60,MR=16,MT=16,MB=30;
+  const plotW=W-ML-MR, plotH=H-MT-MB;
+  const N = c.trace.length;
+  const maxTotal = Math.max(...c.trace.map(r=>r.proBefore+r.persoBefore), c.trace[0].proBefore+c.trace[0].persoBefore)*1.05;
+  const x = t => ML + (t/N)*plotW;
+  const y = v => MT + plotH - (v/maxTotal)*plotH;
+  const ns='http://www.w3.org/2000/svg';
+  const inkSoft = getComputedStyle(document.documentElement).getPropertyValue('--ink-soft').trim();
+  const gridColor = getComputedStyle(document.documentElement).getPropertyValue('--line').trim();
+  const proColor = getComputedStyle(document.documentElement).getPropertyValue('--pro').trim();
+  const persoColor = getComputedStyle(document.documentElement).getPropertyValue('--perso').trim();
+
+  for(let i=0;i<=4;i++){
+    const val = maxTotal*i/4;
+    const yy = MT+plotH-(i/4)*plotH;
+    const line = document.createElementNS(ns,'line');
+    line.setAttribute('x1',ML);line.setAttribute('x2',W-MR);line.setAttribute('y1',yy);line.setAttribute('y2',yy);
+    line.setAttribute('stroke',gridColor);line.setAttribute('stroke-width','1');
+    svg.appendChild(line);
+    const txt=document.createElementNS(ns,'text');
+    txt.setAttribute('x',ML-6);txt.setAttribute('y',yy+4);txt.setAttribute('text-anchor','end');
+    txt.setAttribute('font-size','10');txt.setAttribute('fill',inkSoft);
+    txt.textContent = val>=1000000?(val/1000000).toFixed(1)+'M€':Math.round(val/1000)+'k€';
+    svg.appendChild(txt);
+  }
+  for(let i=0;i<=4;i++){
+    const t = Math.round(i*N/4);
+    const txt=document.createElementNS(ns,'text');
+    txt.setAttribute('x',x(t));txt.setAttribute('y',H-8);txt.setAttribute('text-anchor','middle');
+    txt.setAttribute('font-size','10');txt.setAttribute('fill',inkSoft);
+    txt.textContent = 'an '+t;
+    svg.appendChild(txt);
+  }
+
+  function area(vals, color){
+    let d = 'M '+x(0)+','+y(0).toFixed(1);
+    vals.forEach((v,i)=> d += ' L '+x(i).toFixed(1)+','+y(v).toFixed(1));
+    d += ' L '+x(vals.length-1).toFixed(1)+','+y(0).toFixed(1)+' Z';
+    const el = document.createElementNS(ns,'path');
+    el.setAttribute('d',d); el.setAttribute('fill',color); el.setAttribute('opacity','0.55');
+    svg.appendChild(el);
+  }
+  const persoStack = c.trace.map(r=>Math.max(0,r.persoBefore));
+  const totalStack = c.trace.map(r=>Math.max(0,r.persoBefore)+Math.max(0,r.proBefore));
+  area(totalStack, proColor);
+  area(persoStack, persoColor);
+
+  // net monthly line (secondary scale)
+  const nets = c.trace.map(r=>r.netTotal/12);
+  const maxNet = Math.max(...nets)*1.2;
+  const yNet = v => MT+plotH-(v/maxNet)*plotH;
+  let dpath = 'M '+c.trace.map((r,i)=>x(i).toFixed(1)+','+yNet(r.netTotal/12).toFixed(1)).join(' L ');
+  const netLine = document.createElementNS(ns,'path');
+  netLine.setAttribute('d',dpath); netLine.setAttribute('fill','none');
+  netLine.setAttribute('stroke', inkSoft); netLine.setAttribute('stroke-width','2'); netLine.setAttribute('stroke-dasharray','4,3');
+  svg.appendChild(netLine);
+
+  document.getElementById('legend').innerHTML = `
+    <span><i style="background:${proColor};opacity:0.55"></i>Solde Pro + Perso (total)</span>
+    <span><i style="background:${persoColor};opacity:0.55"></i>Solde Perso seul</span>
+    <span><i style="background:${inkSoft};height:2px;"></i>Net mensuel en poche (échelle secondaire)</span>
+  `;
+
+  // breakdown table, first 5 years
+  const bt = document.getElementById('breakdownTable');
+  let html = '<tr><th>Année</th><th>Frais pro</th><th>Salaire net</th><th>Coût Pro (charges incl.)</th><th>Net Perso</th><th>Coût Perso (impôt incl.)</th><th>Net total/mois</th></tr>';
+  c.trace.slice(0,5).forEach(r=>{
+    html += `<tr><td>${r.year}</td><td>${fmtEUR(r.fraisPro/12)}</td><td>${fmtEUR(r.salaireNet/12)}</td><td>${fmtEUR((r.fraisPro+r.salaireCoutPro)/12)}</td><td>${fmtEUR(r.persoNet/12)}</td><td>${fmtEUR(r.persoCoutPerso/12)}</td><td><b>${fmtEUR(r.netTotal/12)}</b></td></tr>`;
+  });
+  bt.innerHTML = html;
+}
+
+function buildStatsTable(cycles){
+  const famous = [1929,1937,1966,1973,2000,2007];
+  const rows = [];
+  famous.forEach(fy=>{ const c = cycles.find(cc=>cc.startYear===fy); if(c) rows.push(c); });
+  const worst = cycles.reduce((a,b)=> a.finalTotal<b.finalTotal?a:b);
+  const best = cycles.reduce((a,b)=> a.finalTotal>b.finalTotal?a:b);
+  if(!rows.find(r=>r.startYear===worst.startYear)) rows.push(worst);
+  if(!rows.find(r=>r.startYear===best.startYear)) rows.push(best);
+  rows.sort((a,b)=>a.startYear-b.startYear);
+  const table = document.getElementById('statsTable');
+  let html = '<tr><th>Départ</th><th>Net mensuel moyen</th><th>Pire mois</th><th>Capital final</th></tr>';
+  rows.forEach(r=>{
+    const nets = r.trace.map(t=>t.netTotal/12);
+    const avg = nets.reduce((a,b)=>a+b,0)/nets.length;
+    html += `<tr><td>${r.startYear}</td><td>${fmtEUR(avg)}</td><td>${fmtEUR(Math.min(...nets))}</td><td>${fmtEUR(r.finalTotal)}</td></tr>`;
+  });
+  table.innerHTML = html;
+}
+
+function updateLabels(){
+  document.getElementById('capProVal').textContent = fmtEUR(parseFloat(document.getElementById('capPro').value)||0);
+  document.getElementById('capPersoVal').textContent = fmtEUR(parseFloat(document.getElementById('capPerso').value)||0);
+  document.getElementById('allocProVal').textContent = document.getElementById('allocPro').value+' %';
+  document.getElementById('allocPersoVal').textContent = document.getElementById('allocPerso').value+' %';
+  document.getElementById('pvProVal').textContent = document.getElementById('pvPro').value+' %';
+  document.getElementById('pvPersoVal').textContent = document.getElementById('pvPerso').value+' %';
+  document.getElementById('fraisProVal').textContent = fmtEUR(parseFloat(document.getElementById('fraisPro').value));
+  document.getElementById('salaireVal').textContent = fmtEUR(parseFloat(document.getElementById('salaire').value));
+  document.getElementById('chargesVal').textContent = document.getElementById('charges').value+' %';
+  document.getElementById('tauxPVVal').textContent = document.getElementById('tauxPV').value+' %';
+  document.getElementById('fraisStructVal').textContent = fmtEUR(parseFloat(document.getElementById('fraisStruct').value));
+  document.getElementById('planchVal').textContent = fmtEUR(parseFloat(document.getElementById('planch').value));
+  document.getElementById('plafVal').textContent = fmtEUR(parseFloat(document.getElementById('plaf').value));
+  document.getElementById('horizonVal').textContent = document.getElementById('horizon').value+' ans';
+  document.getElementById('vpwGVal').textContent = document.getElementById('vpwG').value+' %';
+}
+
+const PARAM_IDS = ['capPro','capPerso','allocPro','allocPerso','pvPro','pvPerso','fraisPro','salaire','charges','tauxPV','fraisStruct','planch','plaf','horizon','vpwG'];
+
+function applyParamsFromURL(){
+  const qs = new URLSearchParams(window.location.search);
+  PARAM_IDS.forEach(id=>{
+    if(qs.has(id)){
+      const el = document.getElementById(id);
+      if(el) el.value = qs.get(id);
+    }
+  });
+}
+
+function updateURL(){
+  try{
+    const qs = new URLSearchParams();
+    PARAM_IDS.forEach(id=>{
+      qs.set(id, document.getElementById(id).value);
+    });
+    const newUrl = window.location.pathname + '?' + qs.toString();
+    history.replaceState(null, '', newUrl);
+  }catch(e){ /* environnement restreint (iframe/sandbox) : on ignore silencieusement */ }
+}
+
+function copyLink(){
+  updateURL();
+  const url = window.location.href;
+  const btn = document.getElementById('copyLinkBtn');
+  const done = ()=>{ btn.textContent = 'Lien copié ✓'; setTimeout(()=>{ btn.textContent = 'Copier le lien de cette simulation'; }, 2000); };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(url).then(done).catch(()=>{
+      const tmp = document.createElement('input');
+      tmp.value = url; document.body.appendChild(tmp); tmp.select();
+      document.execCommand('copy'); document.body.removeChild(tmp); done();
+    });
+  } else {
+    const tmp = document.createElement('input');
+    tmp.value = url; document.body.appendChild(tmp); tmp.select();
+    document.execCommand('copy'); document.body.removeChild(tmp); done();
+  }
+}
+
+PARAM_IDS.forEach(id=>{
+  document.getElementById(id).addEventListener('input', updateLabels);
+});
+document.getElementById('runBtn').addEventListener('click', ()=>{ runAll(); updateURL(); });
+document.getElementById('cycleSelect').addEventListener('change', drawCycle);
+document.getElementById('copyLinkBtn').addEventListener('click', copyLink);
+
+applyParamsFromURL();
+updateLabels();
+runAll();
+updateURL();
+</script>
+
+</body>
+</html>
